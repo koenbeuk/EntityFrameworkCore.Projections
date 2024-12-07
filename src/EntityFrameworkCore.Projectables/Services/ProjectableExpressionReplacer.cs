@@ -48,7 +48,7 @@ namespace EntityFrameworkCore.Projectables.Services
 
                 reflectedExpression = projectableAttribute is not null
                     ? _resolver.FindGeneratedExpression(memberInfo)
-                    : null;
+                    : (LambdaExpression?)null;
 
                 _projectableMemberCache.Add(memberInfo, reflectedExpression);
             }
@@ -235,19 +235,30 @@ namespace EntityFrameworkCore.Projectables.Services
                 if (nodeExpression is not null)
                 {
                     _expressionArgumentReplacer.ParameterArgumentMapping.Add(reflectedExpression.Parameters[0], nodeExpression);
+                    if (reflectedExpression.Parameters.Count > 1)
+                    {
+                        var projectableAttribute = nodeMember.GetCustomAttribute<ProjectableAttribute>(false)!;
+                        foreach (var parameterWithIndex in reflectedExpression.Parameters.Skip(1).Select((Parameter, Index) => new { Parameter, Index }))
+                        {
+                            var value = projectableAttribute!.UseMemberBodyArguments![parameterWithIndex.Index];
+                            _expressionArgumentReplacer.ParameterArgumentMapping.Add(parameterWithIndex.Parameter, Expression.Constant(value));
+                        }
+                    }
+
                     var updatedBody = _expressionArgumentReplacer.Visit(reflectedExpression.Body);
                     _expressionArgumentReplacer.ParameterArgumentMapping.Clear();
 
-                    return base.Visit(
+                    return Visit(
                         updatedBody
                     );
                 }
                 else
                 {
-                    return base.Visit(
+                    return Visit(
                         reflectedExpression.Body
                     );
                 }
+
             }
 
             return base.VisitMember(node);

@@ -61,7 +61,7 @@ namespace EntityFrameworkCore.Projectables.Tests.Services
             );
             var subject = new ProjectableExpressionReplacer(resolver);
 
-            var actual = subject.Replace(input);
+            var actual = subject.Visit(input);
 
             Assert.Equal(expected.ToString(), actual.ToString());
         }
@@ -77,7 +77,7 @@ namespace EntityFrameworkCore.Projectables.Tests.Services
             );
             var subject = new ProjectableExpressionReplacer(resolver);
 
-            var actual = subject.Replace(input);
+            var actual = subject.Visit(input);
 
             Assert.Equal(expected.ToString(), actual.ToString());
         }
@@ -93,7 +93,7 @@ namespace EntityFrameworkCore.Projectables.Tests.Services
             );
             var subject = new ProjectableExpressionReplacer(resolver);
 
-            var actual = subject.Replace(input);
+            var actual = subject.Visit(input);
 
             Assert.Equal(expected.ToString(), actual.ToString());
         }
@@ -109,7 +109,7 @@ namespace EntityFrameworkCore.Projectables.Tests.Services
             );
             var subject = new ProjectableExpressionReplacer(resolver);
 
-            var actual = subject.Replace(input);
+            var actual = subject.Visit(input);
 
             Assert.Equal(expected.ToString(), actual.ToString());
         }
@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.Projectables.Tests.Services
             );
             var subject = new ProjectableExpressionReplacer(resolver);
 
-            var actual = subject.Replace(input);
+            var actual = subject.Visit(input);
 
             Assert.Equal(expected.ToString(), actual.ToString());
         }
@@ -141,7 +141,7 @@ namespace EntityFrameworkCore.Projectables.Tests.Services
             );
             var subject = new ProjectableExpressionReplacer(resolver);
 
-            var actual = subject.Replace(input);
+            var actual = subject.Visit(input);
 
             Assert.Equal(expected.ToString(), actual.ToString());
         }
@@ -157,7 +157,7 @@ namespace EntityFrameworkCore.Projectables.Tests.Services
             );
             var subject = new ProjectableExpressionReplacer(resolver);
 
-            var actual = subject.Replace(input);
+            var actual = subject.Visit(input);
 
             Assert.Equal(expected.ToString(), actual.ToString());
         }

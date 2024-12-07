@@ -13,13 +13,16 @@ namespace EntityFrameworkCore.Projectables.Services
             var projectableAttribute = projectableMemberInfo.GetCustomAttribute<ProjectableAttribute>()
                 ?? throw new InvalidOperationException("Expected member to have a Projectable attribute. None found");
 
-            var expression = GetExpressionFromGeneratedType(projectableMemberInfo);
+            var expression = projectableAttribute.UseMemberBody is null? GetExpressionFromGeneratedType(projectableMemberInfo): null;
 
+            if (expression is null && projectableAttribute.UseMemberBody is not null && projectableAttribute.UseMemberBodyArguments is null)
+            {
+                expression = GetExpressionFromGeneratedType(projectableMemberInfo, true, projectableAttribute.UseMemberBody);
+            }
             if (expression is null && projectableAttribute.UseMemberBody is not null)
             {
-                expression = GetExpressionFromMemberBody(projectableMemberInfo, projectableAttribute.UseMemberBody);
+                expression = GetExpressionFromMemberBody(projectableMemberInfo, projectableAttribute.UseMemberBody, projectableAttribute.UseMemberBodyArguments);
             }
-
             if (expression is null)
             {
                 var declaringType = projectableMemberInfo.DeclaringType ?? throw new InvalidOperationException("Expected a valid type here");
@@ -33,17 +36,32 @@ namespace EntityFrameworkCore.Projectables.Services
 
             return expression;
 
-            static LambdaExpression? GetExpressionFromMemberBody(MemberInfo projectableMemberInfo, string memberName)
+            static LambdaExpression? GetExpressionFromMemberBody(MemberInfo projectableMemberInfo, string memberName, object[]? memberParameters)
             {
                 var declaringType = projectableMemberInfo.DeclaringType ?? throw new InvalidOperationException("Expected a valid type here");
-                var exprProperty = declaringType.GetProperty(memberName, BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                var exprProperty = declaringType.GetProperty(memberName, BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                                   ?? declaringType.BaseType?.GetProperty(memberName, BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 var lambda = exprProperty?.GetValue(null) as LambdaExpression;
 
                 if (lambda is not null)
                 {
-                    if (projectableMemberInfo is PropertyInfo property &&
-                        lambda.Parameters.Count == 1 &&
-                        lambda.Parameters[0].Type == declaringType && lambda.ReturnType == property.PropertyType)
+
+                    if (projectableMemberInfo is PropertyInfo property && (lambda.Parameters.Count ==
+                                                                           (1 + (memberParameters?.Length ?? 0)))
+                                                                       && (lambda.Parameters[0].Type == declaringType ||
+                                                                           lambda.Parameters[0].Type ==
+                                                                           declaringType.BaseType)
+                                                                       && lambda.ReturnType == property.PropertyType
+                                                                       && (memberParameters?.Any() != true
+                                                                           || lambda.Parameters.Skip(1)
+                                                                               .Select((Parameter, Index) =>
+                                                                                   new { Parameter, Index })
+                                                                               .All(p => p.Parameter.Type ==
+                                                                                   memberParameters[p.Index]
+                                                                                       .GetType())))
+
+
                     {
                         return lambda;
                     }
@@ -55,16 +73,16 @@ namespace EntityFrameworkCore.Projectables.Services
                         return lambda;
                     }
                 }
-
                 return null;
             }
 
-            static LambdaExpression? GetExpressionFromGeneratedType(MemberInfo projectableMemberInfo)
+            static LambdaExpression? GetExpressionFromGeneratedType(MemberInfo projectableMemberInfo, bool useLocalType = false, string methodName = "Expression")
             {
                 var declaringType = projectableMemberInfo.DeclaringType ?? throw new InvalidOperationException("Expected a valid type here");
                 var generatedContainingTypeName = ProjectionExpressionClassNameGenerator.GenerateFullName(declaringType.Namespace, declaringType.GetNestedTypePath().Select(x => x.Name), projectableMemberInfo.Name);
-
-                var expressionFactoryType = declaringType.Assembly.GetType(generatedContainingTypeName);
+                var expressionFactoryType = !useLocalType
+                                            ? declaringType.Assembly.GetType(generatedContainingTypeName)
+                                            : declaringType;
 
                 if (expressionFactoryType is not null)
                 {
@@ -73,7 +91,7 @@ namespace EntityFrameworkCore.Projectables.Services
                         expressionFactoryType = expressionFactoryType.MakeGenericType(declaringType.GenericTypeArguments);
                     }
 
-                    var expressionFactoryMethod = expressionFactoryType.GetMethod("Expression", BindingFlags.Static | BindingFlags.NonPublic);
+                    var expressionFactoryMethod = expressionFactoryType.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic);
 
                     var methodGenericArguments = projectableMemberInfo switch {
                         MethodInfo methodInfo => methodInfo.GetGenericArguments(),
@@ -90,7 +108,6 @@ namespace EntityFrameworkCore.Projectables.Services
                         return expressionFactoryMethod.Invoke(null, null) as LambdaExpression ?? throw new InvalidOperationException("Expected lambda");
                     }
                 }
-
                 return null;
             }
         }
