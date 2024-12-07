@@ -248,7 +248,14 @@ namespace EntityFrameworkCore.Projectables.Generator
             }
             else if (memberBody is PropertyDeclarationSyntax propertyDeclarationSyntax)
             {
-                if (propertyDeclarationSyntax.ExpressionBody is null)
+                var expressionBody = propertyDeclarationSyntax.ExpressionBody;
+                if (expressionBody is null)
+                {
+                    //try to get from getter
+                    var getter = propertyDeclarationSyntax.AccessorList?.Accessors.FirstOrDefault(x => x.Kind() == SyntaxKind.GetAccessorDeclaration);
+                    expressionBody = getter?.ExpressionBody;
+                }
+                if (expressionBody is null)
                 {
                     var diagnostic = Diagnostic.Create(Diagnostics.RequiresExpressionBodyDefinition, propertyDeclarationSyntax.GetLocation(), memberSymbol.Name);
                     context.ReportDiagnostic(diagnostic);
@@ -258,7 +265,7 @@ namespace EntityFrameworkCore.Projectables.Generator
                 var returnType = declarationSyntaxRewriter.Visit(propertyDeclarationSyntax.Type);
 
                 descriptor.ReturnTypeName = returnType.ToString();
-                descriptor.ExpressionBody = (ExpressionSyntax)expressionSyntaxRewriter.Visit(propertyDeclarationSyntax.ExpressionBody.Expression);
+                descriptor.ExpressionBody = (ExpressionSyntax)expressionSyntaxRewriter.Visit(expressionBody.Expression);
             }
             else
             {

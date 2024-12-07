@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -115,6 +116,34 @@ namespace Foo {
 
         [Projectable]
         public int Foo => Bar + 1;
+    }
+}
+");
+
+            var result = RunGenerator(compilation);
+
+            Assert.Empty(result.Diagnostics);
+            Assert.Single(result.GeneratedTrees);
+
+            return Verifier.Verify(result.GeneratedTrees[0].ToString());
+        }
+
+        [Fact]
+        public Task SimpleProjectableComputedPropertyWithSetter()
+        {
+            var compilation = CreateCompilation(@"
+using System;
+using EntityFrameworkCore.Projectables;
+namespace Foo {
+    class C {
+        public int Bar { get; set; }
+
+        [Projectable]
+        public int Foo 
+        { 
+            get => Bar;
+            set => Bar = value;
+        }
     }
 }
 ");
@@ -468,28 +497,6 @@ namespace Foo {
             Assert.Single(result.GeneratedTrees);
 
             return Verifier.Verify(result.GeneratedTrees[0].ToString());
-        }
-
-        [Fact]
-        public void BlockBodiedMember_RaisesDiagnostics()
-        {
-            var compilation = CreateCompilation(@"
-using System;
-using EntityFrameworkCore.Projectables;
-namespace Foo {
-    class C {
-        [Projectable]
-        public int Foo 
-        {
-            get => 1;
-        }
-    }
-}
-");
-
-            var result = RunGenerator(compilation);
-
-            Assert.Single(result.Diagnostics);
         }
 
         [Fact]
@@ -1858,7 +1865,7 @@ class EntityBase<TId> where TId : ICloneable, new() {
 
         #region Helpers
 
-        Compilation CreateCompilation(string source, bool expectedToCompile = true)
+        Compilation CreateCompilation([StringSyntax("c#")]string source, bool expectedToCompile = true)
         {
             var references = Basic.Reference.Assemblies.Net80.References.All.ToList();
             references.Add(MetadataReference.CreateFromFile(typeof(ProjectableAttribute).Assembly.Location));
